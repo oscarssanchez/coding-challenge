@@ -153,7 +153,7 @@ class Block {
 					]
 				);
 
-				wp_cache_set( 'tax-query', $tax_query, 'site-counts' );
+				wp_cache_set( 'tax-query', $tax_query, 'site-counts', 10 * MINUTE_IN_SECONDS );
 			}
 
 			if ( $tax_query->found_posts ) :
