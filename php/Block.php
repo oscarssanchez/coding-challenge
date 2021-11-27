@@ -74,7 +74,7 @@ class Block {
 			foreach ( $post_types as $post_type_slug ) :
 				$post_type_object = get_post_type_object( $post_type_slug );
 				$post_count       = wp_count_posts( $post_type_slug );
-				if ( 0 !== $post_count ) :
+				if ( 0 !== $post_count->publish ) :
 					?>
 				<li>
 					<?php
