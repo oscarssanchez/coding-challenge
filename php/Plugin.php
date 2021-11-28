@@ -32,6 +32,8 @@ class Plugin {
 	 * Initiates the class.
 	 */
 	public function init() {
+		add_action( 'init', [ $this, 'textdomain' ] );
+
 		( new Block( $this ) )->init();
 	}
 
@@ -42,5 +44,12 @@ class Plugin {
 	 */
 	public function dir() {
 		return $this->dir;
+	}
+
+	/**
+	 * Loads the plugin Text Domain.
+	 */
+	public function textdomain() {
+		load_plugin_textdomain( 'site-counts' );
 	}
 }

@@ -63,62 +63,116 @@ class Block {
 	 * @return string The markup of the block.
 	 */
 	public function render_callback( $attributes, $content, $block ) {
-		$post_types = get_post_types(  [ 'public' => true ] );
+		$post_types = get_post_types( [ 'public' => true ] );
 		$class_name = $attributes['className'];
 		ob_start();
-
 		?>
-        <div class="<?php echo $class_name; ?>">
-			<h2>Post Counts</h2>
+		<div class="<?php echo esc_attr( $class_name ); ?>">
+			<h2><?php esc_html_e( 'Post Counts', 'site-counts' ); ?></h2>
 			<ul>
 			<?php
 			foreach ( $post_types as $post_type_slug ) :
-                $post_type_object = get_post_type_object( $post_type_slug  );
-                $post_count = count(
-                    get_posts(
-						[
-							'post_type' => $post_type_slug,
-							'posts_per_page' => -1,
-						]
-					)
-                );
-
-				?>
-				<li><?php echo 'There are ' . $post_count . ' ' .
-					  $post_type_object->labels->name . '.'; ?></li>
-			<?php endforeach;	?>
-			</ul><p><?php echo 'The current post ID is ' . $_GET['post_id'] . '.'; ?></p>
-
+				$post_type_object = get_post_type_object( $post_type_slug );
+				$post_count       = wp_count_posts( $post_type_slug );
+				if ( 0 !== $post_count->publish ) :
+					?>
+				<li>
+					<?php
+					/* translators: 1: post count, 2: post type name */
+					echo sprintf( __( 'There are %1$d, %2$s.', 'site-counts' ), (int) $post_count, esc_html( $post_type_object->labels->name ) );
+					?>
+				</li>
+				<?php endif; ?>
+			<?php endforeach; ?>
+			</ul>
 			<?php
-			$query = new WP_Query(  array(
-				'post_type' => ['post', 'page'],
-				'post_status' => 'any',
-				'date_query' => array(
-					array(
-						'hour'      => 9,
-						'compare'   => '>=',
-					),
-					array(
-						'hour' => 17,
-						'compare'=> '<=',
-					),
-				),
-                'tag'  => 'foo',
-                'category_name'  => 'baz',
-				  'post__not_in' => [ get_the_ID() ],
-			));
-
-			if ( $query->found_posts ) :
+			$post_id = ! empty( $_GET['post_id'] ) && is_int( $_GET['post_id'] ) ? $_GET['post_id'] : get_the_ID();
+			?>
+			<p>
+				<?php
+				/* translators: 1: current post id */
+				echo sprintf( __( 'The current post ID is %d.', 'site-counts' ), (int) $post_id );
 				?>
-				 <h2>5 posts with the tag of foo and the category of baz</h2>
-                <ul>
-                <?php
+			</p>
+			<?php
+			$tax_query = wp_cache_get( 'tax-query', 'site-counts' );
 
-                 foreach ( array_slice( $query->posts, 0, 5 ) as $post ) :
-                    ?><li><?php echo $post->post_title ?></li><?php
+			if ( ! $tax_query ) {
+
+				$cat_query = new WP_Query(
+					[
+						'post_type'              => [ 'post', 'page' ],
+						'post_status'            => 'any',
+						'date_query'             => [
+							[
+								'hour'    => 9,
+								'compare' => '>=',
+							],
+							[
+								'hour'    => 17,
+								'compare' => '<=',
+							],
+						],
+						'category_name'          => 'baz',
+						'fields'                 => 'ids',
+						'no_found_rows'          => true,
+						'update_post_meta_cache' => false,
+					]
+				);
+
+				$tag_query = new WP_Query(
+					[
+						'post_type'              => [ 'post', 'page' ],
+						'post_status'            => 'any',
+						'date_query'             => [
+							[
+								'hour'    => 9,
+								'compare' => '>=',
+							],
+							[
+								'hour'    => 17,
+								'compare' => '<=',
+							],
+						],
+						'tag'                    => 'foo',
+						'fields'                 => 'ids',
+						'no_found_rows'          => true,
+						'update_post_meta_cache' => false,
+					]
+				);
+
+				$ids = array_unique( array_merge( $cat_query->posts, $tag_query->posts ) );
+				$ids = array_diff( $ids, [ $post_id ] );
+
+				$tax_query = new WP_Query(
+					[
+						'post__in'               => $ids,
+						'no_found_rows'          => true,
+						'update_post_meta_cache' => false,
+						'update_post_term_cache' => false,
+					]
+				);
+
+				wp_cache_set( 'tax-query', $tax_query, 'site-counts', 10 * MINUTE_IN_SECONDS );
+			}
+
+			if ( $tax_query->found_posts ) :
+				?>
+			<h2>
+				<?php
+				/* translators: 1: found posts from query */
+				echo sprintf( __( '%d posts with the tag of foo and the category of baz', 'site-counts' ), (int) $tax_query->found_posts );
+				?>
+			</h2>
+				<ul>
+				<?php
+				foreach ( array_slice( $tax_query->posts, 0, 5 ) as $post ) :
+					?>
+					<li><?php echo esc_html( $post->post_title ); ?></li>
+					<?php
 				endforeach;
 			endif;
-		 	?>
+			?>
 			</ul>
 		</div>
 		<?php
